@@ -51,6 +51,13 @@ pub extern "C" fn rustgram_fingerprint() -> *mut c_char {
 
 /// Frees a string returned by this crate. Null is a no-op.
 /// ptr must be null or a not-yet-freed pointer from this crate.
+///
+/// `#[allow(clippy::not_unsafe_ptr_arg_deref)]`: this is an FFI boundary by
+/// design (C++ cannot call `unsafe fn`). Soundness rests on the documented
+/// contract above; the raw-pointer dereference is encapsulated in the
+/// `unsafe` block below and cannot be triggered except by violating that
+/// contract, which is already undefined behavior per the docs.
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn rustgram_string_free(ptr: *mut c_char) {
     if !ptr.is_null() {
@@ -64,6 +71,10 @@ pub extern "C" fn rustgram_string_free(ptr: *mut c_char) {
 /// Returns bytes written (excl. NUL), or -1 on null buffer, zero length,
 /// or internal panic. No heap transfer: nothing to free.
 /// out must point to at least out_len writable bytes.
+///
+/// `#[allow(clippy::not_unsafe_ptr_arg_deref)]`: FFI boundary, same rationale
+/// as on `rustgram_string_free` — the contract above is the safety boundary.
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn rustgram_fingerprint_into(out: *mut c_uchar, out_len: usize) -> i64 {
     if out.is_null() || out_len == 0 {
@@ -87,6 +98,10 @@ pub extern "C" fn rustgram_fingerprint_into(out: *mut c_uchar, out_len: usize) -
 /// at startup before any real module traffic. Returns -1 on null input,
 /// invalid UTF-8, interior NUL, or panic.
 /// input must be null or a valid NUL-terminated string for the call.
+///
+/// `#[allow(clippy::not_unsafe_ptr_arg_deref)]`: FFI boundary, same rationale
+/// as on `rustgram_string_free` — the contract above is the safety boundary.
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn rustgram_selftest_roundtrip(input: *const c_char) -> i64 {
     if input.is_null() {
