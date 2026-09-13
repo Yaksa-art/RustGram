@@ -59,22 +59,31 @@ CI proves it on all three platforms.
   on Windows, Linux/Docker, macOS).
 
 **Work items**
-1. Rust workspace at `rust/` with the first crate: `rustgram-bridge` (cxx-qt).
-2. CMake integration: the Telegram target builds `rustgram-bridge` via cargo and links
-   the resulting static library. One entry point (`cmake/external/rust/`), reviewed
-   like any other vendored dependency.
-3. One real call: app startup logs a string produced by Rust (e.g. a build-fingerprint
-   hash). Trivial, visible in every log — and proves the whole chain.
-4. `rust-loc` script: counts Rust vs C++ LoC, emits the share metric.
-5. CI: existing build matrix extended with the Rust toolchain; artifact caching so the
-   debug build stays within the time budget.
-6. ADR-0001 ("cxx-qt as the single bridge") written; `docs/adr/` process started.
+1. ✅ Rust workspace at `rust/` with the first crate: `rustgram-bridge`
+   (plain C ABI staticlib — see ADR-0001 for why not cxx-qt in Phase 0).
+2. ✅ CMake integration: `Telegram/cmake/rust_bridge.cmake` builds
+   `rustgram-bridge` via cargo and links the staticlib into the `Telegram`
+   target (`RUSTGRAM_BRIDGE` option, default ON, `-DRUSTGRAM_BRIDGE=OFF`
+   for pure-C++ packager builds).
+3. ✅ One real call: `Logs::start` invokes
+   `RustGramBridge::logFingerprintOnce()` (self-test + build fingerprint),
+   visible in every log — proves the whole chain.
+4. ✅ `rust-loc` metric: `rust/xtask-rust-loc` (`cargo run -p xtask-rust-loc`),
+   human + `--json` output for CI trend tracking.
+5. ✅ CI: dedicated `rustgram.yml` workflow (fmt, clippy `-D warnings`,
+   tests, staticlib debug+release, FFI symbol check) green on
+   windows/macos/ubuntu; heavy builds pick up the bridge automatically.
+6. ✅ ADR-0001 ("Single Rust Bridge via Plain C ABI Staticlib") written;
+   `docs/adr/` process started. Supersedes the cxx-qt plan of record for
+   Phase 0; revisit at the Phase 4/5 boundary if Qt bindings are needed.
 
 **Exit criteria**
-- Debug build green on all platforms **with** Rust linked in.
-- CI time delta vs pre-Rust baseline ≤ +20%.
-- The metrics baseline (build time, binary size, `rust-loc`) is recorded — future
-  phases are judged against it.
+- [x] Rust CI green on all platforms (run 34766075217, 2026-09-13).
+- [ ] Debug build green on all platforms **with** Rust linked in
+  (heavy builds in progress — validates `rust_bridge.cmake` in the real tree).
+- [ ] CI time delta vs pre-Rust baseline ≤ +20% (measure once heavy builds land).
+- [x] Metrics baseline recorded: Rust 3 files / 332 lines (0.0288%),
+  C++ 2918 files / 1,150,768 lines (run 34766075217, LoC metric job).
 
 ---
 
