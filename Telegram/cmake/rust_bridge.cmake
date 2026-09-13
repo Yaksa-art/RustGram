@@ -48,8 +48,7 @@ set(rustgram_bridge_include_dir ${rustgram_bridge_crate_dir}/include)
 # NOTE: the per-config library path cannot be a plain variable with
 # multi-config generators (Visual Studio, Ninja Multi-Config — both used by
 # win.yml): target/debug vs target/release is only known at build time.
-# The library path below is therefore a generator expression, and the unused
-# rustgram_cargo_profile variable from the first draft is gone.
+# The library path below is therefore a generator expression.
 if (WIN32)
     set(rustgram_bridge_lib_name rustgram_bridge.lib)
 else()
@@ -58,11 +57,10 @@ endif()
 set(rustgram_bridge_lib
     ${rustgram_rust_dir}/target/$<IF:$<CONFIG:Debug>,debug,release>/${rustgram_bridge_lib_name})
 
-if (WIN32)
-    set(rustgram_bridge_lib ${rustgram_lib_dir}/rustgram_bridge.lib)
-else()
-    set(rustgram_bridge_lib ${rustgram_lib_dir}/librustgram_bridge.a)
-endif()
+# NOTE: $<$<NOT:$<CONFIG:Debug>>:--release> (NOT $<IF:...>) — a false
+# $<...> expands to ZERO arguments (removed), while a false $<IF:...>
+# branch expands to ONE empty-string argument, which cargo rejects with
+# "error: unexpected argument '' found" (broke win.yml Debug builds).
 
 add_custom_command(
     OUTPUT ${rustgram_bridge_lib}
@@ -70,7 +68,7 @@ add_custom_command(
         "CARGO_TARGET_DIR=${rustgram_rust_dir}/target"
         ${RUSTGRAM_CARGO} build -p rustgram-bridge
         --manifest-path ${rustgram_rust_dir}/Cargo.toml
-        $<IF:$<CONFIG:Debug>,,--release>
+        $<$<NOT:$<CONFIG:Debug>>:--release>
     WORKING_DIRECTORY ${rustgram_rust_dir}
     DEPENDS
         ${rustgram_bridge_crate_dir}/Cargo.toml
