@@ -93,10 +93,10 @@ pub extern "C" fn rustgram_fingerprint_into(out: *mut c_uchar, out_len: usize) -
     n as i64
 }
 
-/// Validates the (pointer, length, free) contract: copies a NUL-terminated
-/// input through Rust and returns its byte length. Used by the C++ self-test
-/// at startup before any real module traffic. Returns -1 on null input,
-/// invalid UTF-8, interior NUL, or panic.
+/// Performs the contract self-test: really round-trips the input through an
+/// owned CString and returns its byte length. Used by the C++ self-test at
+/// startup before any real module traffic. Returns -1 on null input, invalid
+/// UTF-8, interior NUL, or panic.
 /// input must be null or a valid NUL-terminated string for the call.
 ///
 /// `#[allow(clippy::not_unsafe_ptr_arg_deref)]`: FFI boundary, same rationale
@@ -107,12 +107,17 @@ pub extern "C" fn rustgram_selftest_roundtrip(input: *const c_char) -> i64 {
     if input.is_null() {
         return -1;
     }
-    let len = panic::catch_unwind(AssertUnwindSafe(|| {
+    let roundtripped = panic::catch_unwind(AssertUnwindSafe(|| {
+        // SAFETY: non-null per the check above; the contract guarantees a
+        // valid NUL-terminated string living for the whole call.
         let text = unsafe { CStr::from_ptr(input) }.to_str().ok()?;
-        CString::new(text).ok().map(|c| c.to_bytes().len() as i64)
+        CString::new(text).ok()
     }));
-    match len {
-        Ok(Some(n)) => n,
+    match roundtripped {
+        // The CString is dropped here, but its length was genuinely produced
+        // by a full Rust-side round-trip (parse + re-encode), which is what
+        // the self-test validates: UTF-8 validity and NUL-safety.
+        Ok(Some(owned)) => owned.to_bytes().len() as i64,
         _ => -1,
     }
 }

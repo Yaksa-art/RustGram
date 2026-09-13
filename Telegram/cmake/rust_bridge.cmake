@@ -24,20 +24,39 @@ if (NOT RUSTGRAM_BRIDGE)
     return()
 endif()
 
-find_program(RUSTGRAM_CARGO cargo REQUIRED
+# Cargo is REQUIRED on dev machines, but some packager environments (notably
+# the Linux Docker image and the Snapcraft build env) have no Rust toolchain.
+# Failing hard there would break platforms Phase 0 doesn't own yet, so the
+# bridge degrades to OFF with a loud warning instead. The dedicated
+# rustgram.yml workflow still proves the bridge on all three hosted OSes.
+find_program(RUSTGRAM_CARGO cargo
     DOC "Rust toolchain driver (pinned via rust/rust-toolchain.toml).")
+if (NOT RUSTGRAM_CARGO)
+    message(WARNING
+        "RustGram bridge: cargo not found, building WITHOUT Rust support. "
+        "Install the Rust toolchain (see rust/rust-toolchain.toml) to enable it.")
+    set(RUSTGRAM_BRIDGE OFF)
+    return()
+endif()
 
-get_filename_component(rustgram_rust_dir ${CMAKE_CURRENT_SOURCE_DIR}/../rust REALPATH)
+# CMAKE_SOURCE_DIR is the repo root (root CMakeLists adds Telegram/ as a
+# subdirectory), so this survives regardless of which CMakeLists includes us.
+get_filename_component(rustgram_rust_dir ${CMAKE_SOURCE_DIR}/rust REALPATH)
 set(rustgram_bridge_crate_dir ${rustgram_rust_dir}/crates/rustgram-bridge)
 set(rustgram_bridge_include_dir ${rustgram_bridge_crate_dir}/include)
 
-if (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_CONFIGURATION_TYPES MATCHES "Debug")
-    set(rustgram_cargo_profile debug)
-    set(rustgram_lib_dir ${rustgram_rust_dir}/target/debug)
+# NOTE: the per-config library path cannot be a plain variable with
+# multi-config generators (Visual Studio, Ninja Multi-Config — both used by
+# win.yml): target/debug vs target/release is only known at build time.
+# The library path below is therefore a generator expression, and the unused
+# rustgram_cargo_profile variable from the first draft is gone.
+if (WIN32)
+    set(rustgram_bridge_lib_name rustgram_bridge.lib)
 else()
-    set(rustgram_cargo_profile release)
-    set(rustgram_lib_dir ${rustgram_rust_dir}/target/release)
+    set(rustgram_bridge_lib_name librustgram_bridge.a)
 endif()
+set(rustgram_bridge_lib
+    ${rustgram_rust_dir}/target/$<IF:$<CONFIG:Debug>,debug,release>/${rustgram_bridge_lib_name})
 
 if (WIN32)
     set(rustgram_bridge_lib ${rustgram_lib_dir}/rustgram_bridge.lib)
@@ -57,11 +76,16 @@ add_custom_command(
         ${rustgram_bridge_crate_dir}/Cargo.toml
         ${rustgram_bridge_crate_dir}/build.rs
         ${rustgram_bridge_crate_dir}/src/lib.rs
-    COMMENT "Building rustgram-bridge staticlib with cargo (${rustgram_cargo_profile})."
+    COMMENT "Building rustgram-bridge staticlib with cargo."
     VERBATIM
 )
 
 add_custom_target(rustgram_bridge_lib DEPENDS ${rustgram_bridge_lib})
+# The staticlib is produced by cargo, not by CMake: without this, parallel
+# builds race Telegram's link step against the still-running cargo build.
+# (Single-config Make generators may order it correctly by luck; Visual
+# Studio and Ninja Multi-Config do not.)
+add_dependencies(Telegram rustgram_bridge_lib)
 
 add_library(tdesktop_rustgram_bridge INTERFACE)
 add_library(tdesktop::rustgram_bridge ALIAS tdesktop_rustgram_bridge)

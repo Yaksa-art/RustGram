@@ -37,9 +37,12 @@ void logFingerprintImpl() {
 		return;
 	}
 
-	// 3. Convert while owned, then release. The fingerprint is ASCII.
+	// 3. Convert while owned, then release. fromUtf8 never throws; on
+	// malformed input it substitutes U+FFFD, so no exception can escape
+	// into the log path. The fingerprint is ASCII in practice.
 	const auto fingerprint = QString::fromUtf8(raw);
 	rustgram_string_free(raw);
+	raw = nullptr;
 
 	LOG(("RustGram bridge: %1").arg(fingerprint));
 }
