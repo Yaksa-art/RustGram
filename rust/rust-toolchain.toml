@@ -1,0 +1,6 @@
+# Pinned to the same toolchain Telegram's own prepare.py installs
+# (Telegram/build/prepare/prepare.py, `rustToolchain`), so local builds,
+# CI, and the dependency pipeline all compile Rust with one compiler.
+[toolchain]
+channel = "1.96.1"
+components = ["rust-src"]

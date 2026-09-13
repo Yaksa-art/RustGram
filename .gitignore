@@ -74,3 +74,7 @@ settings.local.json
 
 # Generated changelog page (built by CI, deployed to GitHub Pages)
 /docs/changelog/
+
+# RustGram: Rust build outputs (Phase 0+)
+rust/target/
+rust/**/target/

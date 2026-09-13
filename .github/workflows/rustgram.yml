@@ -1,0 +1,110 @@
+name: RustGram bridge.
+
+# Phase 0 CI: proves the Rust side compiles, passes tests, and reports the
+# LoC metric on every platform. The full C++ build (win.yml / linux.yml /
+# mac.yml) picks up the staticlib automatically through
+# Telegram/cmake/rust_bridge.cmake once this workflow is green.
+#
+# Design notes:
+# - Toolchain is pinned by rust/rust-toolchain.toml (1.96.1, same as
+#   Telegram/build/prepare/prepare.py installs), so `rustup` self-syncs.
+# - CARGO_TARGET_DIR is cached per OS: staticlib rebuilds are incremental.
+# - The `metric` job posts the rust-loc JSON as a step summary so the Rust
+#   share trend is visible without opening logs.
+
+on:
+  push:
+    paths:
+      - 'rust/**'
+      - 'Telegram/cmake/rust_bridge.cmake'
+      - 'Telegram/CMakeLists.txt'
+      - 'Telegram/SourceFiles/rustgram_facade.*'
+      - 'Telegram/SourceFiles/logs.cpp'
+      - '.github/workflows/rustgram.yml'
+      - 'docs/adr/**'
+  pull_request:
+    paths:
+      - 'rust/**'
+      - 'Telegram/cmake/rust_bridge.cmake'
+      - 'Telegram/CMakeLists.txt'
+      - 'Telegram/SourceFiles/rustgram_facade.*'
+      - 'Telegram/SourceFiles/logs.cpp'
+      - '.github/workflows/rustgram.yml'
+      - 'docs/adr/**'
+
+jobs:
+  rust:
+    name: Rust (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+
+    defaults:
+      run:
+        working-directory: rust
+
+    steps:
+      - name: Clone.
+        uses: actions/checkout@v7
+
+      - name: Toolchain.
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.1
+          components: rust-src
+
+      - name: Cargo cache.
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          shared-key: rustgram-phase0
+
+      - name: Format check.
+        run: cargo fmt -p rustgram-bridge -p xtask-rust-loc -- --check
+
+      - name: Clippy.
+        run: cargo clippy -p rustgram-bridge --tests -- -D warnings
+
+      - name: Tests.
+        run: cargo test -p rustgram-bridge
+
+      - name: Staticlib (debug).
+        run: cargo build -p rustgram-bridge
+
+      - name: Staticlib (release).
+        run: cargo build -p rustgram-bridge --release
+
+      - name: FFI symbol check.
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            LIB="target/debug/rustgram_bridge.lib"
+          else
+            LIB="target/debug/librustgram_bridge.a"
+          fi
+          test -f "$LIB" || (echo "staticlib missing: $LIB" && exit 1)
+          echo "staticlib present: $LIB"
+          ls -la "$LIB"
+
+  metric:
+    name: LoC metric
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone.
+        uses: actions/checkout@v7
+
+      - name: Toolchain.
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.1
+
+      - name: Report.
+        run: |
+          cargo run -q -p xtask-rust-loc -- --root "$GITHUB_WORKSPACE" --json | tee metric.json
+          echo "### RustGram LoC metric" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat metric.json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+        working-directory: rust

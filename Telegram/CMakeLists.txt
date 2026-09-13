@@ -40,6 +40,7 @@ include(cmake/td_ui.cmake)
 include(cmake/td_webauthn.cmake)
 include(cmake/telegram_apple_swift_runtime.cmake)
 include(cmake/generate_appstream_changelog.cmake)
+include(cmake/rust_bridge.cmake)
 
 if (DESKTOP_APP_TEST_APPS)
     include(cmake/tests.cmake)
@@ -64,6 +65,7 @@ set_target_properties(Telegram PROPERTIES AUTOMOC ON)
 
 target_link_libraries(Telegram
 PRIVATE
+    $<$<BOOL:${RUSTGRAM_BRIDGE}>:tdesktop::rustgram_bridge>
     tdesktop::lib_fido2
     tdesktop::lib_tgcalls
     tdesktop::td_export
@@ -2181,6 +2183,8 @@ PRIVATE
     config.h
     logs.cpp
     logs.h
+    rustgram_facade.cpp
+    rustgram_facade.h
     main.cpp
     mainwidget.cpp
     mainwidget.h

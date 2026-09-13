@@ -1,0 +1,13 @@
+[package]
+name = "rustgram-bridge"
+version = "0.1.0"
+edition = "2021"
+description = "The single Rust-to-C++ boundary crate for RustGram (see ADR-0001)"
+license = "GPL-3.0-or-later"
+
+[lib]
+name = "rustgram_bridge"
+# staticlib: what CMake links into the Telegram binary (same delivery
+# mechanism as Telegram's own tlottie dependency). rlib: for Rust-side
+# tests and future pure-Rust dependents.
+crate-type = ["staticlib", "rlib"]

@@ -12,6 +12,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/launcher.h"
 #include "core/version.h"
 #include "mtproto/facade.h"
+#include "rustgram_facade.h"
 
 namespace {
 
@@ -427,6 +428,9 @@ void start() {
 	}
 
 	LOG(("Logs started"));
+#ifdef RUSTGRAM_BRIDGE_ENABLED
+	RustGramBridge::logFingerprintOnce();
+#endif // RUSTGRAM_BRIDGE_ENABLED
 }
 
 void finish() {

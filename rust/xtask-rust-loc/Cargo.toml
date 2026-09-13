@@ -1,0 +1,10 @@
+[package]
+name = "xtask-rust-loc"
+version = "0.1.0"
+edition = "2021"
+description = "Counts Rust vs C++ lines of code for the RustGram migration metric (see ROADMAP.md)"
+license = "GPL-3.0-or-later"
+
+[[bin]]
+name = "rust-loc"
+path = "src/main.rs"
