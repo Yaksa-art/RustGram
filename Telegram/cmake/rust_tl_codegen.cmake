@@ -43,7 +43,10 @@
 #   include(cmake/rust_tl_codegen.cmake)
 #   rust_generate_scheme(td_scheme "${scheme_files}")
 
-function(rust_generate_scheme target_name scheme_files)
+function(rust_generate_scheme target_name script scheme_files)
+    # `script` is accepted for drop-in compatibility with generate_scheme()
+    # (td_scheme.cmake call site stays one-line-swappable); the Rust driver
+    # uses codegen_scheme.json instead, so the Python script path is ignored.
     find_program(RUST_TL_CODEGEN_CARGO cargo
         DOC "Rust toolchain driver (pinned via rust/rust-toolchain.toml).")
     if (NOT RUST_TL_CODEGEN_CARGO)
