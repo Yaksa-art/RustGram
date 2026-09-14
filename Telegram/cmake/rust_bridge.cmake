@@ -57,10 +57,13 @@ endif()
 set(rustgram_bridge_lib
     ${rustgram_rust_dir}/target/$<IF:$<CONFIG:Debug>,debug,release>/${rustgram_bridge_lib_name})
 
-# NOTE: $<$<NOT:$<CONFIG:Debug>>:--release> (NOT $<IF:...>) — a false
-# $<...> expands to ZERO arguments (removed), while a false $<IF:...>
-# branch expands to ONE empty-string argument, which cargo rejects with
-# "error: unexpected argument '' found" (broke win.yml Debug builds).
+# NOTE: cargo profile is selected with --profile <dev|release> where BOTH
+# genex branches are non-empty. A conditional whole flag (either
+# $<IF:...> or $<$<NOT:...>:...>) expands to ONE empty-string argument in
+# the false case on Ninja Multi-Config + cmd.exe /C, which cargo rejects
+# with "error: unexpected argument '' found" (broke win.yml Debug builds
+# twice). --profile dev == default debug build, --profile release ==
+# --release, so this is equivalent with no empty-argument hazard.
 
 add_custom_command(
     OUTPUT ${rustgram_bridge_lib}
@@ -68,7 +71,7 @@ add_custom_command(
         "CARGO_TARGET_DIR=${rustgram_rust_dir}/target"
         ${RUSTGRAM_CARGO} build -p rustgram-bridge
         --manifest-path ${rustgram_rust_dir}/Cargo.toml
-        $<$<NOT:$<CONFIG:Debug>>:--release>
+        --profile $<IF:$<CONFIG:Debug>,dev,release>
     WORKING_DIRECTORY ${rustgram_rust_dir}
     DEPENDS
         ${rustgram_bridge_crate_dir}/Cargo.toml
