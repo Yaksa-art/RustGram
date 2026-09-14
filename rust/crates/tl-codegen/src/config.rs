@@ -25,8 +25,11 @@ pub struct CodegenScheme {
     #[serde(default)]
     pub sections: Vec<String>,
     /// `flagInheritance`: key flag type must be a subset of value flag type.
+    /// `IndexMap` preserves JSON insertion order — the emitted
+    /// `mtpCastFlags` operators must follow `codegen_scheme.py` order
+    /// byte-for-byte.
     #[serde(default)]
-    pub flag_inheritance: HashMap<String, String>,
+    pub flag_inheritance: indexmap::IndexMap<String, String>,
     #[serde(default)]
     pub type_id_exceptions: HashSet<String>,
     #[serde(default)]
@@ -34,10 +37,12 @@ pub struct CodegenScheme {
     /// Exact-line skips (`int ? = Int;`, both `vector` defs, ...).
     #[serde(default)]
     pub skip: HashSet<String>,
+    /// Ordered lists in Python (`builtin`, `builtinTemplates`) — order
+    /// matters for `forwTypedefs` emission, so `Vec` preserves JSON order.
     #[serde(default)]
-    pub builtin: HashSet<String>,
+    pub builtin: Vec<String>,
     #[serde(default)]
-    pub builtin_templates: HashSet<String>,
+    pub builtin_templates: Vec<String>,
     #[serde(default)]
     pub synonyms: HashMap<String, String>,
     #[serde(default)]

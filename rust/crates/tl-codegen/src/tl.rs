@@ -14,6 +14,8 @@ pub struct TlInputs {
     pub lines: Vec<String>,
     /// Last `// LAYER <n>` seen (229 for the current scheme).
     pub layer: u32,
+    /// Basenames of the input files, in order (`names` in Python).
+    pub names: Vec<String>,
 }
 
 /// Read `.tl` files: extract `LAYER`, keep every other line verbatim,
@@ -21,8 +23,15 @@ pub struct TlInputs {
 pub fn read_inputs(files: &[&str]) -> std::io::Result<TlInputs> {
     let mut all_lines = vec!["---types---".to_string()];
     let mut layer = 0u32;
+    let mut names = Vec::with_capacity(files.len());
     for file in files {
-        let text = fs::read_to_string(Path::new(file))?;
+        let path = Path::new(file);
+        let base = path
+            .file_name()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_else(|| file.to_string());
+        names.push(base);
+        let text = fs::read_to_string(path)?;
         for raw in text.lines() {
             if let Some(n) = parse_layer(raw) {
                 layer = n;
@@ -34,6 +43,7 @@ pub fn read_inputs(files: &[&str]) -> std::io::Result<TlInputs> {
     Ok(TlInputs {
         lines: all_lines,
         layer,
+        names,
     })
 }
 
@@ -142,6 +152,7 @@ mod tests {
         std::fs::write(&a, "boolTrue#997275b5 = Bool;\n// LAYER 100\n").unwrap();
         std::fs::write(&b, "boolFalse#bc799737 = Bool;\n// LAYER 229\n").unwrap();
         let inputs = read_inputs(&[&a.to_string_lossy(), &b.to_string_lossy()]).unwrap();
+        assert_eq!(inputs.names, vec!["tl_test_a.tl", "tl_test_b.tl"]);
         assert_eq!(inputs.layer, 229);
         assert_eq!(inputs.lines[0], "---types---");
         assert!(inputs.lines.iter().any(|l| l.contains("boolTrue")));

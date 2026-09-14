@@ -41,16 +41,13 @@ pub fn clean_line_for_crc(
     // `cleanline = group(1) + group(3) + '= ' + group(4)`.
     let mut line = format!("{ctor_name}{params_raw}= {result}");
     // Strip ` name:flags2?.N?true` optional-true params.
-    let true_re: &OnceLock<Regex> = {
-        static R: OnceLock<Regex> = OnceLock::new();
-        R.get_or_init(|| Regex::new(r" [a-zA-Z0-9_]+\:flags2?\.[0-9]+\?true").unwrap());
-        &R
-    };
+    static TRUE_RE: OnceLock<Regex> = OnceLock::new();
+    let true_re =
+        TRUE_RE.get_or_init(|| Regex::new(r" [a-zA-Z0-9_]+\:flags2?\.[0-9]+\?true").unwrap());
     line = true_re.replace_all(&line, "").into_owned();
     line = line.replace('<', " ").replace('>', " ");
-    while line.contains("  ") {
-        line = line.replace("  ", " ");
-    }
+    // Single non-overlapping pass, exactly like Python `str.replace`.
+    line = line.replace("  ", " ");
     line = line
         .strip_prefix(' ')
         .unwrap_or(&line)
@@ -66,7 +63,10 @@ pub fn clean_line_for_crc(
 }
 
 /// Normalize a result type exactly like lines 450-463, returning
-/// `(resType_key, boxed_alias)`.
+/// `(dict_key, boxed_alias)`: `dict_key` is the lowercased-first `restype`
+/// used as the `typesDict`/`funcsDict` key (e.g. `Bool` -> `bool`,
+/// `ns.Res` -> `ns_res`); `boxed_alias` is the case-preserving `resType`
+/// stored in `TypesDict` (e.g. `Bool`, `ns_Res`).
 fn normalize_result(
     restype_raw: &str,
     resolver: &Resolver<'_>,
@@ -78,9 +78,9 @@ fn normalize_result(
             resolver.handle_template(&restype, scheme_parsed, &|rr, n| Ok(rr.full_type_name(n)))?;
     }
     let res_type = normalized_name(&restype);
-    let boxed: String;
+    let key: String;
     if restype.contains('.') {
-        // `ns.Res` -> `ns_res`.
+        // `ns.Res` -> key `ns_res`, boxed `ns_Res`.
         let dot = restype.rfind('.').unwrap();
         let (ns, tail) = restype.split_at(dot);
         let tail = &tail[1..];
@@ -91,7 +91,7 @@ fn normalize_result(
         if !first.is_ascii_uppercase() {
             return Err(format!("Bad result type name with dot: {restype}"));
         }
-        boxed = format!(
+        key = format!(
             "{}_{}{}",
             ns.replace('.', "_"),
             first.to_ascii_lowercase(),
@@ -104,11 +104,11 @@ fn normalize_result(
     {
         let mut b = restype.clone();
         b.replace_range(..1, &restype[..1].to_lowercase());
-        boxed = b;
+        key = b;
     } else {
         return Err(format!("Bad result type name: {restype}"));
     }
-    Ok((res_type, boxed))
+    Ok((key, res_type))
 }
 
 /// Full parse loop. Returns a populated `Scheme` (types + funcs tables,
@@ -116,6 +116,7 @@ fn normalize_result(
 pub fn parse_inputs(inputs: &tl::TlInputs, scheme: &CodegenScheme) -> Scheme {
     let mut out = Scheme {
         layer: inputs.layer,
+        input_names: inputs.names.clone(),
         ..Scheme::default()
     };
     let resolver = Resolver::new(scheme);
@@ -237,11 +238,11 @@ pub fn parse_inputs(inputs: &tl::TlInputs, scheme: &CodegenScheme) -> Scheme {
         let full_name = resolver.full_type_name(&name);
         let full_data_name = resolver.full_data_name(&name);
         let bare_name = normalized_bare_name(&name).unwrap_or_else(|_| name.clone());
-        out.enums.push(format!(
+        let enum_line = format!(
             "\t{} = {:#x}",
             format!("{}{}", scheme.id_prefix(), name),
             type_id
-        ));
+        );
 
         // Param loop (lines 470-562).
         let mut params: Vec<Param> = Vec::new();
@@ -259,7 +260,7 @@ pub fn parse_inputs(inputs: &tl::TlInputs, scheme: &CodegenScheme) -> Scheme {
         let mut bots_only: HashSet<String> = HashSet::new();
         let mut failed = false;
 
-        for token in header.params_raw.strip().split(' ') {
+        for token in header.params_raw.trim().split(' ') {
             if token.trim().is_empty() {
                 continue;
             }
@@ -350,27 +351,62 @@ pub fn parse_inputs(inputs: &tl::TlInputs, scheme: &CodegenScheme) -> Scheme {
                     if bots_prm {
                         bots_only.insert(pname.clone());
                     }
+                    let mut ptype = ty.clone();
+                    if ptype.contains('<') {
+                        if nul_prm {
+                            out.warnings.push(format!(
+                                "Vector param should not be nullable: \"{pname}:{ptytype}\" in line: {line}",
+                                ptytype = ty
+                            ));
+                            failed = true;
+                            break;
+                        }
+                        if nul_vec {
+                            nullable_vectors.insert(pname.clone());
+                        }
+                        let resolved = if read_write {
+                            resolver.handle_template(
+                                &ptype,
+                                &out,
+                                &|rr, n| Ok(rr.full_type_name(n)),
+                            )
+                        } else {
+                            resolver
+                                .handle_template(&ptype, &out, &|rr, n| rr.full_bare_type_name(n))
+                        };
+                        match resolved {
+                            Ok(r) => ptype = r,
+                            Err(e) => {
+                                out.warnings.push(e);
+                                failed = true;
+                                break;
+                            }
+                        }
+                    } else if nul_vec {
+                        out.warnings.push(format!(
+                            "Non-vector param should not be vector-nullable: \"{pname}:{ptytype}\" in line: {line}",
+                            ptytype = ty
+                        ));
+                        failed = true;
+                        break;
+                    } else if nul_prm {
+                        nullable_params.insert(pname.clone());
+                    }
                     prms_list.push(pname.clone());
                     let normalized = if read_write {
-                        normalized_name(&ty)
+                        normalized_name(&ptype)
                     } else {
-                        normalized_bare_name(&ty).unwrap_or_else(|_| ty.clone())
+                        normalized_bare_name(&ptype).unwrap_or_else(|_| ptype.clone())
                     };
                     let resolved = match type_ctors.get(&normalized) {
                         Some((bare, _)) => bare.clone(),
                         None => normalized,
                     };
-                    if nul_vec {
-                        nullable_vectors.insert(pname.clone());
-                    }
-                    if nul_prm {
-                        nullable_params.insert(pname.clone());
-                    }
                     prms.insert(pname.clone(), resolved.clone());
                     params.push(Param {
                         name: pname,
                         tl_type: resolved,
-                        raw_tl_type: ty,
+                        raw_tl_type: ptype,
                         flag_bit: None,
                         is_true_flag: false,
                     });
@@ -443,6 +479,10 @@ pub fn parse_inputs(inputs: &tl::TlInputs, scheme: &CodegenScheme) -> Scheme {
                 }
             }
         }
+        // Python pushes the enum line BEFORE the param loop, so even a
+        // constructor that later fails still leaves its enum constant.
+        out.enums.push(enum_line);
+
         if failed {
             continue;
         }
@@ -456,6 +496,8 @@ pub fn parse_inputs(inputs: &tl::TlInputs, scheme: &CodegenScheme) -> Scheme {
 
         let ctor = Constructor {
             name: name.clone(),
+            tl_name: original.clone(),
+            alias_name: class_name.clone(),
             bare_name,
             full_name,
             full_data_name,
@@ -463,6 +505,10 @@ pub fn parse_inputs(inputs: &tl::TlInputs, scheme: &CodegenScheme) -> Scheme {
             params,
             has_flags: !has_flags.is_empty(),
             has_flags64: !has_flags64.is_empty(),
+            flags_name: has_flags.clone(),
+            flags64_name: has_flags64.clone(),
+            template_param: is_template.clone(),
+            template_var: has_template.clone(),
             conditions,
             trivial_conditions: trivial,
             is_template: !is_template.is_empty(),
@@ -479,9 +525,10 @@ pub fn parse_inputs(inputs: &tl::TlInputs, scheme: &CodegenScheme) -> Scheme {
             }
             let table = out.funcs.entry(res_key.clone()).or_insert(TypeDef {
                 restype: res_key.clone(),
-                boxed_name: String::new(),
+                boxed_name: boxed_alias.clone(),
                 ..TypeDef::default()
             });
+            table.boxed_name = boxed_alias.clone();
             table.ctors.push(ctor);
         } else {
             if ctor.is_template {
@@ -502,13 +549,32 @@ pub fn parse_inputs(inputs: &tl::TlInputs, scheme: &CodegenScheme) -> Scheme {
     }
 
     // Post-pass: `withType = len > 1`, `withData`, `nullable`.
-    for def in out.types.values_mut() {
+    // `withData` is set per-constructor in Python: any constructor whose
+    // stored params (`len(prms) > len(trivialConditions) + len(botsOnlyPrms)`)
+    // is non-empty marks the whole type as having data.
+    for (key, def) in out.types.iter_mut() {
         def.with_type = def.ctors.len() > 1;
-        def.with_data = def.ctors.iter().any(|c| !c.params.is_empty());
+        def.with_data = def.ctors.iter().any(|c| {
+            c.params
+                .iter()
+                .filter(|p| !c.trivial_conditions.contains(&p.name))
+                .filter(|p| !c.bots_only_params.contains(&p.name))
+                .count()
+                > 0
+        });
+        def.nullable = scheme.nullable.contains(key);
     }
-    for def in out.funcs.values_mut() {
+    for (key, def) in out.funcs.iter_mut() {
         def.with_type = def.ctors.len() > 1;
-        def.with_data = def.ctors.iter().any(|c| !c.params.is_empty());
+        def.with_data = def.ctors.iter().any(|c| {
+            c.params
+                .iter()
+                .filter(|p| !c.trivial_conditions.contains(&p.name))
+                .filter(|p| !c.bots_only_params.contains(&p.name))
+                .count()
+                > 0
+        });
+        def.nullable = scheme.nullable.contains(key);
     }
     out
 }
@@ -542,6 +608,7 @@ mod tests {
                 "inputPhoneContact#6a1dc4be flags:# client_id:long phone:string note:flags.0?TextWithEntities = InputContact;".to_string(),
             ],
             layer: 229,
+            names: vec!["test.tl".to_string()],
         };
         let parsed = parse_inputs(&inputs, &scheme);
         assert_eq!(parsed.layer, 229);
@@ -566,6 +633,7 @@ mod tests {
                 "boolFalse#deadbeef = Bool;".to_string(),
             ],
             layer: 1,
+            names: vec!["test.tl".to_string()],
         };
         let parsed = parse_inputs(&inputs, &scheme);
         assert!(parsed.types.is_empty());

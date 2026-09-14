@@ -15,6 +15,10 @@ use std::collections::HashSet;
 pub struct Scheme {
     /// Last `// LAYER` seen (229 for the current scheme).
     pub layer: u32,
+    /// Basenames of the input `.tl` files, in order (`names` in Python,
+    /// used for the `Created from '...' by 'generate.py'` banner).
+    #[serde(default)]
+    pub input_names: Vec<String>,
     /// `typesDict` + `typesList`: result type -> definition, in order.
     pub types: IndexMap<String, TypeDef>,
     /// `funcsDict` + `funcsList`: same for `---functions---`.
@@ -47,6 +51,12 @@ pub struct TypeDef {
 pub struct Constructor {
     /// `normalizedName(name)`: `ns.cons` -> `ns_cons`.
     pub name: String,
+    /// Original TL name before `renamedTypes` (for `// RPC method` comments).
+    #[serde(default)]
+    pub tl_name: String,
+    /// `Name` mangling (lines 409-414): `ns.cons` -> `ns_Cons`, `foo` -> `Foo`.
+    #[serde(default)]
+    pub alias_name: String,
     /// `normalizedBareName(name)`: `ns.Box` -> `ns_box`.
     pub bare_name: String,
     /// `fullTypeName` applied (`MTP` prefix).
@@ -58,6 +68,18 @@ pub struct Constructor {
     pub params: Vec<Param>,
     pub has_flags: bool,
     pub has_flags64: bool,
+    /// `flags` field name (`hasFlags`), empty when none.
+    #[serde(default)]
+    pub flags_name: String,
+    /// `flags2` field name (`hasFlags64`), empty when none.
+    #[serde(default)]
+    pub flags64_name: String,
+    /// Template query param name (`isTemplate`), empty when none.
+    #[serde(default)]
+    pub template_param: String,
+    /// `{X:Type}` placeholder var (`hasTemplate`), empty when none.
+    #[serde(default)]
+    pub template_var: String,
     /// `(pname, bit)` in order (`conditionsList`).
     pub conditions: Vec<(String, u32)>,
     /// `Type == true` flags (`trivialConditions`).

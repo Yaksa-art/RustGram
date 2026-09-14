@@ -7,6 +7,7 @@
 
 pub mod conversion;
 pub mod dump;
+pub mod gen;
 pub mod header;
 pub mod source;
 
