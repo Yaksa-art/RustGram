@@ -88,6 +88,60 @@ jobs:
           echo "staticlib present: $LIB"
           ls -la "$LIB"
 
+  parity:
+    name: TL codegen parity (Python vs Rust)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone.
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Toolchain.
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.1
+          components: rust-src
+
+      - name: Python golden.
+        run: |
+          mkdir -p /tmp/py /tmp/rs
+          python3 Telegram/SourceFiles/codegen/scheme/codegen_scheme.py \
+            -o/tmp/py/scheme \
+            Telegram/SourceFiles/mtproto/scheme/api.tl \
+            Telegram/SourceFiles/mtproto/scheme/mtproto.tl
+          ls -la /tmp/py/
+
+      - name: Rust candidate.
+        run: |
+          cargo run -q -p tl-codegen -- \
+            --config crates/tl-codegen/codegen_scheme.json \
+            -o/tmp/rs/scheme \
+            "$GITHUB_WORKSPACE/Telegram/SourceFiles/mtproto/scheme/api.tl" \
+            "$GITHUB_WORKSPACE/Telegram/SourceFiles/mtproto/scheme/mtproto.tl"
+          ls -la /tmp/rs/
+        working-directory: rust
+
+      - name: Byte diff.
+        continue-on-error: true
+        run: |
+          PASS=1
+          for f in scheme.h scheme.cpp scheme-dump_to_text.h scheme-dump_to_text.cpp; do
+            if diff -q /tmp/py/$f /tmp/rs/$f >/dev/null 2>&1; then
+              echo "IDENTICAL: $f"
+            else
+              echo "DIFF_FOUND: $f"
+              diff /tmp/py/$f /tmp/rs/$f | head -40 || true
+              PASS=0
+            fi
+          done
+          if [ "$PASS" = "1" ]; then
+            echo "### TL codegen parity: BYTE-IDENTICAL" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### TL codegen parity: differences remain (see log)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   metric:
     name: LoC metric
     runs-on: ubuntu-latest
