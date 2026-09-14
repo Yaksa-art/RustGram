@@ -62,13 +62,13 @@ jobs:
           shared-key: rustgram-phase0
 
       - name: Format check.
-        run: cargo fmt -p rustgram-bridge -p xtask-rust-loc -- --check
+        run: cargo fmt -p rustgram-bridge -p tl-codegen -p xtask-rust-loc -- --check
 
       - name: Clippy.
-        run: cargo clippy -p rustgram-bridge --tests -- -D warnings
+        run: cargo clippy -p rustgram-bridge -p tl-codegen --tests -- -D warnings
 
       - name: Tests.
-        run: cargo test -p rustgram-bridge
+        run: cargo test -p rustgram-bridge -p tl-codegen
 
       - name: Staticlib (debug).
         run: cargo build -p rustgram-bridge

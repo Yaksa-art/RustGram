@@ -7,4 +7,4 @@
 
 [workspace]
 resolver = "2"
-members = ["crates/rustgram-bridge", "xtask-rust-loc"]
+members = ["crates/rustgram-bridge", "crates/tl-codegen", "xtask-rust-loc"]
