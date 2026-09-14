@@ -32,9 +32,18 @@ pub fn read_and_generate(
     let inputs = read_inputs(input_files)?;
     let parsed = crate::parse_scheme(&inputs, config);
 
+    // Python's `outputHeaderBasename` = basename of the `-o` stem + `.h`.
+    let header_basename = format!(
+        "{}.h",
+        Path::new(output_stem)
+            .file_name()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_else(|| output_stem.to_string())
+    );
+
     let outputs = Outputs {
         header: header::emit(&parsed, config),
-        source: source::emit(&parsed, config),
+        source: source::emit_with_basename(&parsed, config, &header_basename),
         dump_header: config
             .write_serialization()
             .then(|| dump::emit_header(&parsed, config)),
@@ -75,12 +84,9 @@ pub fn read_and_generate(
             }
         }
     }
-    // `.timestamp`: always rewritten (touches the CMake custom-command
-    // output so downstream rebuilds trigger exactly like Python).
-    std::fs::write(
-        Path::new(&format!("{output_stem}.timestamp")),
-        format!("layer {}\n", parsed.layer),
-    )?;
-    let _ = inputs.layer;
+    // `.timestamp`: Python writes the literal `'1'`; CMake only uses the
+    // file as a custom-command OUTPUT stamp, never its content.
+    std::fs::write(Path::new(&format!("{output_stem}.timestamp")), "1")?;
+    let _ = (inputs.layer, parsed.layer);
     Ok(outputs)
 }
