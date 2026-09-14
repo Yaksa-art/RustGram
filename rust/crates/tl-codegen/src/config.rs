@@ -179,4 +179,20 @@ mod tests {
         assert_eq!(s.id_prefix(), "mtpc_");
         assert_eq!(s.creator_namespace_full(), "MTP::details");
     }
+
+    #[test]
+    fn scheme_json_mirrors_codegen_scheme_py() {
+        let s: CodegenScheme =
+            serde_json::from_str(include_str!("../codegen_scheme.json")).unwrap();
+        assert!(s.read_write_section());
+        assert_eq!(s.id_prefix(), "mtpc_");
+        assert_eq!(s.creator_namespace_full(), "MTP::details");
+        assert_eq!(s.builtin.len(), 7);
+        assert_eq!(s.flag_inheritance.len(), 11);
+        let dump = s.dump_to_text.as_ref().expect("dumpToText present");
+        assert_eq!(dump.include, "mtproto/details/mtproto_dump_to_text.h");
+        assert!(s.conversion.is_none());
+        assert!(s.is_builtin_type("int"));
+        assert!(!s.is_builtin_type("Vector"));
+    }
 }

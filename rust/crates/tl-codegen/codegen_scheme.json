@@ -1,0 +1,73 @@
+{
+  "namespaces": {
+    "creator": "MTP::details"
+  },
+  "prefixes": {
+    "type": "MTP",
+    "data": "MTPD",
+    "id": "mtpc",
+    "construct": "MTP_"
+  },
+  "types": {
+    "prime": "mtpPrime",
+    "typeId": "mtpTypeId",
+    "buffer": "mtpBuffer"
+  },
+  "sections": [
+    "read-write"
+  ],
+  "flag_inheritance": {
+    "messageService": "message",
+    "updateShortMessage": "message",
+    "updateShortChatMessage": "message",
+    "updateShortSentMessage": "message",
+    "replyKeyboardHide": "replyKeyboardMarkup",
+    "replyKeyboardForceReply": "replyKeyboardMarkup",
+    "inputPeerNotifySettings": "peerNotifySettings",
+    "peerNotifySettings": "inputPeerNotifySettings",
+    "channelForbidden": "channel",
+    "dialogFolder": "dialog",
+    "dialogCommunity": "dialog"
+  },
+  "type_id_exceptions": [
+    "channel#c88974ac",
+    "ipPortSecret#37982646",
+    "accessPointRule#4679b65f",
+    "help.configSimple#5a592a6c",
+    "messageReplies#81834865"
+  ],
+  "renamed_types": {
+    "passwordKdfAlgoSHA256SHA256PBKDF2HMACSHA512iter100000SHA256ModPow": "passwordKdfAlgoModPow"
+  },
+  "skip": [
+    "int ? = Int;",
+    "long ? = Long;",
+    "double ? = Double;",
+    "string ? = String;",
+    "vector {t:Type} # [ t ] = Vector t;",
+    "int128 4*[ int ] = Int128;",
+    "int256 8*[ int ] = Int256;",
+    "vector#1cb5c415 {t:Type} # [ t ] = Vector t;"
+  ],
+  "builtin": [
+    "int",
+    "long",
+    "double",
+    "string",
+    "bytes",
+    "int128",
+    "int256"
+  ],
+  "builtin_templates": [
+    "vector",
+    "flags"
+  ],
+  "synonyms": {
+    "bytes": "string"
+  },
+  "builtin_include": "mtproto/core_types.h",
+  "optimize_single_data": true,
+  "dump_to_text": {
+    "include": "mtproto/details/mtproto_dump_to_text.h"
+  }
+}
