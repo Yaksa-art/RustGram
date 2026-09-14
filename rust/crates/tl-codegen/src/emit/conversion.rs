@@ -50,7 +50,7 @@ fn from_arg(c: &Constructor, pname: &str, bare: &str, config: &CodegenScheme) ->
     if bare == "string" {
         return format!("tl_from_string(specific->{pname}_)");
     }
-    if config.builtin.contains(bare) || bare == "bool" {
+    if config.is_builtin_type(bare) || bare == "bool" {
         return format!("tl_from_simple(specific->{pname}_)");
     }
     if bare.contains('<') {
@@ -82,7 +82,7 @@ fn to_arg(
     if c.bots_only_params.contains(pname) {
         return Some("{}".to_string());
     }
-    if config.builtin.contains(bare) || bare == "bool" {
+    if config.is_builtin_type(bare) || bare == "bool" {
         return Some(format!("tl_to_simple(value.v{pname}())"));
     }
     if bare.contains('<') {
@@ -131,7 +131,9 @@ fn gen(scheme: &Scheme, config: &CodegenScheme) -> Conv {
 
     // ---- types first (file order: types before funcs) ----
     for (restype_key, def) in &scheme.types {
-        if config.builtin.contains(restype_key) || conv.builtin_additional.contains(restype_key) {
+        if config.is_builtin_type(restype_key)
+            || conv.builtin_additional.iter().any(|b| b == restype_key)
+        {
             continue;
         }
         let full = full_type(config, restype_key);

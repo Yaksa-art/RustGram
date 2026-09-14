@@ -635,7 +635,7 @@ fn emit_types(
                     if is_scalar_param(&p.tl_type) {
                         prms_str.push(format!("{ptype_full} {pname}_"));
                         creator_params.push(format!("{ptype_full} {pname}_"));
-                    } else if c.nullable_vectors.contains(*pname) {
+                    } else if c.nullable_vectors.contains(pname) {
                         let opt = optional_in_vector(&ptype_full)
                             .unwrap_or_else(|_| format!("Vector<std::optional<{ptype_full}>>"));
                         prms_str.push(format!("const {opt} &{pname}_"));

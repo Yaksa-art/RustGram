@@ -475,7 +475,6 @@ pub fn parse_inputs(inputs: &tl::TlInputs, scheme: &CodegenScheme) -> Scheme {
                     if let Some(last) = params.last_mut() {
                         last.is_true_flag = trivial.contains(&last.name);
                     }
-                    let _ = optional_in_vector(&ptype).ok();
                 }
             }
         }

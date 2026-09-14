@@ -6,7 +6,6 @@
 
 use crate::config::CodegenScheme;
 use crate::ir::{Constructor, Scheme};
-use crate::parse::normalized_name;
 use regex::Regex;
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -19,14 +18,6 @@ fn vector_mtp_re() -> &'static Regex {
 fn upper_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| Regex::new(r"^[A-Z]").unwrap())
-}
-
-fn full_type(config: &CodegenScheme, name: &str) -> String {
-    format!("{}{}", config.prefixes.type_, normalized_name(name))
-}
-
-fn full_data(config: &CodegenScheme, name: &str) -> String {
-    format!("{}{}", config.prefixes.data, normalized_name(name))
 }
 
 /// `boxed` map: Python sets `boxed[resType] = restype` and `boxed[Name] =
@@ -401,7 +392,6 @@ bool DumpToTextType(DumpToTextBuffer &to, const {prime} *&from, const {prime} *e
 }
 
 pub fn emit_header(scheme: &Scheme, config: &CodegenScheme) -> String {
-    let _ = scheme;
     let prime = config.types.prime.as_str();
     let mut h = String::new();
     h.push_str("// WARNING! All changes made in this file will be lost!\n");
@@ -487,7 +477,5 @@ pub fn emit_source_with_basenames(
     s.push_str(&format!(
         "// Created from {input_names} by 'generate.py'\n//\n#include \"{dump_header_basename}\"\n#include \"{scheme_header_basename}\"\n#include \"{serialization_include}\"\n#include \"base/flat_map.h\"\n\nnamespace MTP::details {{\n{source_body}\n}} // namespace MTP::details\n"
     ));
-    // Silence dead-code warnings for helpers shared with future ports.
-    let _ = (full_type(config, "x"), full_data(config, "x"));
     s
 }

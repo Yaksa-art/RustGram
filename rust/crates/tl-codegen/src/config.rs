@@ -146,7 +146,7 @@ impl CodegenScheme {
 
     /// `isBuiltinType`: `builtin + builtinTemplates`.
     pub fn is_builtin_type(&self, name: &str) -> bool {
-        self.builtin.contains(name) || self.builtin_templates.contains(name)
+        self.builtin.iter().any(|b| b == name) || self.builtin_templates.iter().any(|b| b == name)
     }
 }
 
