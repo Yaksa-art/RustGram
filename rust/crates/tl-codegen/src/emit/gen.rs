@@ -435,7 +435,7 @@ pub fn generate(scheme: &Scheme, config: &CodegenScheme) -> Generated {
 
     // ---- types (lines 809-1342) ----
     emit_types(
-        g,
+        &mut g,
         scheme,
         config,
         &idp,
