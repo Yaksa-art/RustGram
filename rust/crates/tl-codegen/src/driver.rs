@@ -59,18 +59,39 @@ pub fn read_and_generate(
                 &header_basename,
             )
         }),
-        conversion_from_header: config
-            .write_conversion()
-            .then(|| conversion::emit_from_header(&parsed, config)),
-        conversion_from_source: config
-            .write_conversion()
-            .then(|| conversion::emit_from_source(&parsed, config)),
+        conversion_from_header: config.write_conversion().then(|| {
+            let stem = Path::new(output_stem)
+                .file_name()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_else(|| output_stem.to_string());
+            let _ = stem;
+            conversion::emit_from_header_with_basenames(&parsed, config, &header_basename)
+        }),
+        conversion_from_source: config.write_conversion().then(|| {
+            let stem = Path::new(output_stem)
+                .file_name()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_else(|| output_stem.to_string());
+            conversion::emit_from_source_with_basenames(
+                &parsed,
+                config,
+                &format!("{stem}-conversion-from.h"),
+            )
+        }),
         conversion_to_header: config
             .write_conversion()
-            .then(|| conversion::emit_to_header(&parsed, config)),
-        conversion_to_source: config
-            .write_conversion()
-            .then(|| conversion::emit_to_source(&parsed, config)),
+            .then(|| conversion::emit_to_header_with_basenames(&parsed, config, &header_basename)),
+        conversion_to_source: config.write_conversion().then(|| {
+            let stem = Path::new(output_stem)
+                .file_name()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_else(|| output_stem.to_string());
+            conversion::emit_to_source_with_basenames(
+                &parsed,
+                config,
+                &format!("{stem}-conversion-to.h"),
+            )
+        }),
     };
 
     write_if_changed(Path::new(&format!("{output_stem}.h")), &outputs.header)?;
