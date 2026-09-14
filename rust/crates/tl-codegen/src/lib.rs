@@ -22,6 +22,7 @@ pub mod driver;
 pub mod emit;
 pub mod ir;
 pub mod parse;
+pub mod parser;
 pub mod resolve;
 pub mod tl;
 
@@ -29,10 +30,7 @@ pub use config::CodegenScheme;
 pub use driver::{read_and_generate, Outputs};
 pub use ir::Scheme;
 
-/// Parse stage (M2 fills the main loop; M0 records layer + warnings only).
-pub fn parse_scheme(inputs: &tl::TlInputs, _config: &CodegenScheme) -> Scheme {
-    Scheme {
-        layer: inputs.layer,
-        ..Scheme::default()
-    }
+/// Parse stage (M1): full main-loop port in [`parser`].
+pub fn parse_scheme(inputs: &tl::TlInputs, config: &CodegenScheme) -> Scheme {
+    parser::parse_inputs(inputs, config)
 }
