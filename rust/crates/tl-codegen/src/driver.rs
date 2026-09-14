@@ -47,9 +47,18 @@ pub fn read_and_generate(
         dump_header: config
             .write_serialization()
             .then(|| dump::emit_header(&parsed, config)),
-        dump_source: config
-            .write_serialization()
-            .then(|| dump::emit_source(&parsed, config)),
+        dump_source: config.write_serialization().then(|| {
+            let stem = Path::new(output_stem)
+                .file_name()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_else(|| output_stem.to_string());
+            dump::emit_source_with_basenames(
+                &parsed,
+                config,
+                &format!("{stem}-dump_to_text.h"),
+                &header_basename,
+            )
+        }),
         conversion_from_header: config
             .write_conversion()
             .then(|| conversion::emit_from_header(&parsed, config)),

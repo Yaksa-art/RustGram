@@ -53,7 +53,12 @@ pub fn emit(scheme: &Scheme, config: &CodegenScheme) -> String {
     h.push_str("\n};\n\n// Type forward declarations\n");
     h.push_str(&g.forwards);
     h.push('\n');
-    h.push_str(&g.forw_typedefs);
+    // Python 1492-1493: `// Boxed types definitions` wraps non-empty typedefs.
+    if !g.forw_typedefs.is_empty() {
+        h.push_str("// Boxed types definitions\n");
+        h.push_str(&g.forw_typedefs);
+        h.push('\n');
+    }
     h.push_str("// Type classes definitions\n");
     h.push_str(&g.types_text);
     h.push('\n');
