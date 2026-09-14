@@ -55,13 +55,13 @@ pub fn read_and_generate(
             .then(|| conversion::emit_to_source(&parsed, config)),
     };
 
-    write_if_changed(&Path::new(&format!("{output_stem}.h")), &outputs.header)?;
-    write_if_changed(&Path::new(&format!("{output_stem}.cpp")), &outputs.source)?;
+    write_if_changed(Path::new(&format!("{output_stem}.h")), &outputs.header)?;
+    write_if_changed(Path::new(&format!("{output_stem}.cpp")), &outputs.source)?;
     if let Some(ref h) = outputs.dump_header {
-        write_if_changed(&Path::new(&format!("{output_stem}-dump_to_text.h")), h)?;
+        write_if_changed(Path::new(&format!("{output_stem}-dump_to_text.h")), h)?;
     }
     if let Some(ref s) = outputs.dump_source {
-        write_if_changed(&Path::new(&format!("{output_stem}-dump_to_text.cpp")), s)?;
+        write_if_changed(Path::new(&format!("{output_stem}-dump_to_text.cpp")), s)?;
     }
     if config.write_conversion() {
         for (suffix, content) in [
@@ -71,7 +71,7 @@ pub fn read_and_generate(
             ("-conversion-to.cpp", &outputs.conversion_to_source),
         ] {
             if let Some(text) = content {
-                write_if_changed(&Path::new(&format!("{output_stem}{suffix}")), text)?;
+                write_if_changed(Path::new(&format!("{output_stem}{suffix}")), text)?;
             }
         }
     }

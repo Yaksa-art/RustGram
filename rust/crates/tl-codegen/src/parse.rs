@@ -12,7 +12,6 @@ struct Patterns {
     ctor: Regex,
     param: Regex,
     dotted_box: Regex,
-    template: Regex,
     vector_tpl: Regex,
 }
 
@@ -30,7 +29,6 @@ fn patterns() -> &'static Patterns {
         )
         .unwrap(),
         dotted_box: Regex::new(r"^([a-zA-Z0-9])+\.([A-Z][a-zA-Z0-9]+)$").unwrap(),
-        template: Regex::new(r"^([vV]ector<)([A-Za-z0-9\._<>]+)>$").unwrap(),
         vector_tpl: Regex::new(r"(.*?)([vV]ector<)([A-Za-z0-9_]+)>$").unwrap(),
     })
 }

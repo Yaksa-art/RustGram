@@ -52,9 +52,10 @@ impl<'a> Resolver<'a> {
         let resolved_inner = if inner.contains('<') {
             let nested = self.handle_template(inner, scheme_parsed, process)?;
             process(self, &nested)?
-        } else if starts_uppercase(inner) || is_dotted_upper(inner) {
-            process(self, inner)?
-        } else if self.scheme.is_builtin_type(inner) {
+        } else if starts_uppercase(inner)
+            || is_dotted_upper(inner)
+            || self.scheme.is_builtin_type(inner)
+        {
             process(self, inner)?
         } else {
             // `foundmeta` fallback: search parsed tables for a constructor
